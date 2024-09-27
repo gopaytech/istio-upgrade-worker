@@ -1,3 +1,5 @@
+// todo: deleted
+
 package slack
 
 import (
