@@ -6,6 +6,8 @@ import (
 
 	"github.com/gopaytech/istio-upgrade-worker/config"
 	"github.com/gopaytech/istio-upgrade-worker/services/k8s/statefulset"
+	"github.com/gopaytech/istio-upgrade-worker/services/notification"
+	"github.com/gopaytech/istio-upgrade-worker/settings"
 
 	"github.com/gopaytech/istio-upgrade-worker/services/slack"
 	"github.com/gopaytech/istio-upgrade-worker/usecases/upgrade_proxy"
@@ -17,6 +19,26 @@ import (
 )
 
 func main() {
+	settings, err := settings.NewSettings()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = config.LoadKubernetes()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = config.LoadDeploymentFreeze(settings)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = notification.NotificationFactory(settings)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal(err)
