@@ -1,37 +1,37 @@
-package deployment
+package kubernetes
 
 import (
 	"context"
 	"log"
 	"time"
 
+	"github.com/gopaytech/istio-upgrade-worker/config"
 	v1 "k8s.io/api/apps/v1"
 
-	"github.com/gopaytech/istio-upgrade-worker/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	restartedAtAnnotations = "kubectl.kubernetes.io/restartedAt"
+	deploymentRestartedAtAnnotations = "kubectl.kubernetes.io/restartedAt"
 )
 
-type Service interface {
+type DeploymentInterface interface {
 	RolloutRestart(ctx context.Context, namespace string, deplName string) error
 	FindByNamespace(ctx context.Context, namespace string) ([]v1.Deployment, error)
 }
 
-type svc struct {
-	k8sConfig *config.Conf
-}
-
-func New(cfg *config.Conf) Service {
-	return &svc{
-		k8sConfig: cfg,
+func NewDeploymentService(kubernetesConfig *config.Kubernetes) DeploymentInterface {
+	return &DeploymentService{
+		kubernetesConfig: kubernetesConfig,
 	}
 }
 
-func (s *svc) RolloutRestart(ctx context.Context, namespace string, deplName string) error {
-	c := s.k8sConfig.K8SClient()
+type DeploymentService struct {
+	kubernetesConfig *config.Kubernetes
+}
+
+func (s *DeploymentService) RolloutRestart(ctx context.Context, namespace string, deplName string) error {
+	c := s.kubernetesConfig.Client()
 	depl, err := c.AppsV1().Deployments(namespace).Get(ctx, deplName, metav1.GetOptions{})
 	if err != nil {
 		log.Println(err)
@@ -40,13 +40,13 @@ func (s *svc) RolloutRestart(ctx context.Context, namespace string, deplName str
 	if depl.Spec.Template.ObjectMeta.Annotations == nil {
 		depl.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 	}
-	depl.Spec.Template.ObjectMeta.Annotations[restartedAtAnnotations] = time.Now().Format(time.RFC3339)
+	depl.Spec.Template.ObjectMeta.Annotations[deploymentRestartedAtAnnotations] = time.Now().Format(time.RFC3339)
 	_, err = c.AppsV1().Deployments(namespace).Update(ctx, depl, metav1.UpdateOptions{})
 	return err
 }
 
-func (s *svc) FindByNamespace(ctx context.Context, namespace string) ([]v1.Deployment, error) {
-	c := s.k8sConfig.K8SClient()
+func (s *DeploymentService) FindByNamespace(ctx context.Context, namespace string) ([]v1.Deployment, error) {
+	c := s.kubernetesConfig.Client()
 	deploymentList, err := c.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err

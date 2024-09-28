@@ -5,17 +5,11 @@ import (
 	"log"
 
 	"github.com/gopaytech/istio-upgrade-worker/config"
-	"github.com/gopaytech/istio-upgrade-worker/services/k8s/statefulset"
 	"github.com/gopaytech/istio-upgrade-worker/services/notification"
+	"github.com/gopaytech/istio-upgrade-worker/services/upgrader"
 	"github.com/gopaytech/istio-upgrade-worker/settings"
 
-	"github.com/gopaytech/istio-upgrade-worker/services/slack"
-	"github.com/gopaytech/istio-upgrade-worker/usecases/upgrade_proxy"
-
-	k8scm "github.com/gopaytech/istio-upgrade-worker/services/k8s/configmap"
-	k8sdeployment "github.com/gopaytech/istio-upgrade-worker/services/k8s/deployment"
-	k8snamespace "github.com/gopaytech/istio-upgrade-worker/services/k8s/namespace"
-	k8spod "github.com/gopaytech/istio-upgrade-worker/services/k8s/pod"
+	"github.com/gopaytech/istio-upgrade-worker/services/kubernetes"
 )
 
 func main() {
@@ -24,47 +18,39 @@ func main() {
 		log.Fatal(err)
 	}
 
-	_, err = config.LoadKubernetes()
+	kubernetesConfig, err := config.LoadKubernetes()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = config.LoadDeploymentFreeze(settings)
+	deploymentFreezeConfig, err := config.LoadDeploymentFreeze(settings)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = notification.NotificationFactory(settings)
+	notificationService, err := notification.NotificationFactory(settings)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-	namespaceService := k8snamespace.New(cfg)
-	deploymentService := k8sdeployment.New(cfg)
-	statefulsetService := statefulset.New(cfg)
-	podService := k8spod.New(cfg)
-	configmapService := k8scm.New(cfg)
-	slackService := slack.New(cfg.SlackWebhookURL())
+	namespaceService := kubernetes.NewNamespaceService(kubernetesConfig, settings)
+	deploymentService := kubernetes.NewDeploymentService(kubernetesConfig)
+	statefulsetService := kubernetes.NewStatefulSetService(kubernetesConfig)
+	podService := kubernetes.NewPodService(kubernetesConfig)
+	configmapService := kubernetes.NewConfigMapService(kubernetesConfig)
 
-	log.Println("worker will be running...")
-
-	upgradeProxyUsecase := upgrade_proxy.New(cfg.ClusterName(),
-		cfg.DeploymentFreeze(),
-		slackService,
+	proxyUpgrader := upgrader.NewProxyUpgrader(
+		settings,
+		deploymentFreezeConfig,
+		notificationService,
 		namespaceService,
 		deploymentService,
 		statefulsetService,
 		configmapService,
-		podService)
+		podService,
+	)
 
-	if err := upgradeProxyUsecase.Upgrade(context.Background()); err != nil {
-		log.Println(err)
-	}
-	if err := upgradeProxyUsecase.SendNotificationIfAllProxyUpgraded(context.Background()); err != nil {
+	if err := proxyUpgrader.Upgrade(context.Background()); err != nil {
 		log.Println(err)
 	}
 }

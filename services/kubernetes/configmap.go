@@ -1,4 +1,4 @@
-package configmap
+package kubernetes
 
 import (
 	"context"
@@ -13,24 +13,24 @@ const (
 	apiVersion = "v1"
 )
 
-type Service interface {
+type ConfigMapInterface interface {
 	Create(ctx context.Context, namespace string, name string, data map[string]string) error
 	Get(ctx context.Context, namespace string, configMapName string) (*v1.ConfigMap, error)
 	Update(ctx context.Context, namespace string, cm *v1.ConfigMap) error
 }
 
-func New(cfg *config.Conf) Service {
-	return &svc{
-		k8sConfig: cfg,
+func NewConfigMapService(kubernetesConfig *config.Kubernetes) ConfigMapInterface {
+	return &ConfigMapService{
+		kubernetesConfig: kubernetesConfig,
 	}
 }
 
-type svc struct {
-	k8sConfig *config.Conf
+type ConfigMapService struct {
+	kubernetesConfig *config.Kubernetes
 }
 
-func (s *svc) Create(ctx context.Context, namespace string, name string, data map[string]string) error {
-	c := s.k8sConfig.K8SClient()
+func (s *ConfigMapService) Create(ctx context.Context, namespace string, name string, data map[string]string) error {
+	c := s.kubernetesConfig.Client()
 	cm := v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
@@ -46,8 +46,8 @@ func (s *svc) Create(ctx context.Context, namespace string, name string, data ma
 	return err
 }
 
-func (s *svc) Get(ctx context.Context, namespace string, configMapName string) (*v1.ConfigMap, error) {
-	c := s.k8sConfig.K8SClient()
+func (s *ConfigMapService) Get(ctx context.Context, namespace string, configMapName string) (*v1.ConfigMap, error) {
+	c := s.kubernetesConfig.Client()
 	cm, err := c.CoreV1().ConfigMaps(namespace).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -55,8 +55,8 @@ func (s *svc) Get(ctx context.Context, namespace string, configMapName string) (
 	return cm, nil
 }
 
-func (s *svc) Update(ctx context.Context, namespace string, cm *v1.ConfigMap) error {
-	c := s.k8sConfig.K8SClient()
+func (s *ConfigMapService) Update(ctx context.Context, namespace string, cm *v1.ConfigMap) error {
+	c := s.kubernetesConfig.Client()
 	_, err := c.CoreV1().ConfigMaps(namespace).Update(ctx, cm, metav1.UpdateOptions{})
 	return err
 }
