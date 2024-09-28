@@ -8,24 +8,24 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 data:
-  CLUSTER_NAME: {{ .Values.configuration.clusterName }}
-  ROLLOUT_INTERVAL_SECOND: {{ .Values.configuration.rolloutIntervalSecond }}
-  MAXIMUM_PERCENTAGE_ROLLOUT_SINGLE_EXECUTION: {{ .Values.configuration.maximumPercentageRolloutInSingleExecution }}
-  MAXIMUM_ITERATION: {{ .Values.configuration.maximumIteration }}
-  PRE_UPGRADE_NOTIFICATION_SECOND: {{ .Values.configuration.preUpgradeNotificationSecond }}
+  CLUSTER_NAME: "{{ .Values.configuration.clusterName }}"
+  ROLLOUT_INTERVAL_SECOND: "{{ .Values.configuration.rolloutIntervalSecond }}"
+  MAXIMUM_PERCENTAGE_ROLLOUT_SINGLE_EXECUTION: "{{ .Values.configuration.maximumPercentageRolloutInSingleExecution }}"
+  MAXIMUM_ITERATION: "{{ .Values.configuration.maximumIteration }}"
+  PRE_UPGRADE_NOTIFICATION_SECOND: "{{ .Values.configuration.preUpgradeNotificationSecond }}"
 
-  ENABLE_DEPLOYMENT_FREEZE: {{ .Values.configuration.enableDeploymentFreeze }}
+  ENABLE_DEPLOYMENT_FREEZE: "{{ .Values.configuration.enableDeploymentFreeze }}"
   DEPLOYMENT_FREEZE_CONFIG_FILE_PATH: "/etc/config/deployment-freeze/deployment-freeze.yaml"
-  ENABLE_ROLLOUT_AT_WEEKEND: {{ .Values.configuration.enableRolloutAtWeekend }}
+  ENABLE_ROLLOUT_AT_WEEKEND: "{{ .Values.configuration.enableRolloutAtWeekend }}"
 
-  TIME_LOCATION: {{ .Values.configuration.timeLocation }}
-  TIME_FORMAT: {{ .Values.configuration.timeFormat }}
+  TIME_LOCATION: "{{ .Values.configuration.timeLocation }}"
+  TIME_FORMAT: "{{ .Values.configuration.timeFormat }}"
 
-  STORAGE_MODE: {{ .Values.configuration.storageMode }}
-  STORAGE_CONFIGMAP_NAME: {{ .Values.configuration.storageConfigMapName }}
-  STORAGE_CONFIGMAP_NAMESPACE: {{ .Values.configuration.storageConfigMapNamespace }}
+  STORAGE_MODE: "{{ .Values.configuration.storageMode }}"
+  STORAGE_CONFIGMAP_NAME: "{{ .Values.configuration.storageConfigMapName }}"
+  STORAGE_CONFIGMAP_NAMESPACE: "{{ .Values.configuration.storageConfigMapNamespace }}"
 
-  NOTIFICATION_MODE: {{ .Values.configuration.notificationMode }}
+  NOTIFICATION_MODE: "{{ .Values.configuration.notificationMode }}"
 
-  ISTIO_NAMESPACE_CANARY_LABEL: {{ .Values.configuration.istioNamespaceCanaryLabel }}
-  ISTIO_NAMESPACE_CANARY_LABEL: {{ .Values.configuration.istioNamespaceLabel }}
+  ISTIO_NAMESPACE_CANARY_LABEL: "{{ .Values.configuration.istioNamespaceCanaryLabel }}"
+  ISTIO_NAMESPACE_CANARY_LABEL: "{{ .Values.configuration.istioNamespaceLabel }}"
