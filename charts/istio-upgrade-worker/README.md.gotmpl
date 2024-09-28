@@ -1,0 +1,19 @@
+{{ template "chart.header" . }}
+{{ template "chart.description" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}[![made with Go](https://img.shields.io/badge/made%20with-Go-brightgreen)](http://golang.org) [![Github main branch build](https://img.shields.io/github/workflow/status/gopaytech/istio-upgrade-worker/Main)](https://github.com/gopaytech/istio-upgrade-worker/actions/workflows/main.yml) [![GitHub issues](https://img.shields.io/github/issues/gopaytech/istio-upgrade-worker)](https://github.com/gopaytech/istio-upgrade-worker/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/gopaytech/istio-upgrade-worker)](https://github.com/gopaytech/istio-upgrade-worker/pulls)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/istio-upgrade-worker)](https://artifacthub.io/packages/search?repo=istio-upgrade-worker)
+
+## Installing
+
+To install the chart with the release name `my-release`:
+
+```console
+helm repo add istio-upgrade-worker https://gopaytech.github.io/istio-upgrade-worker/charts/releases/
+helm install my-istio-upgrade-worker istio-upgrade-worker/istio-upgrade-worker --values values.yaml
+```
+
+{{ template "chart.requirementsSection" . }}
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-deployment-freeze
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    helm.sh/chart: {{ template "istio-upgrade-worker.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  deployment-freeze.yaml: |-
+    dates:
+    {{- with .Values.configuration.deploymentFreezeDates }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+

@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    helm.sh/chart: {{ template "istio-upgrade-worker.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  name: {{ .Release.Name }}
+spec:
+  concurrencyPolicy: Forbid
+  schedule: {{ .Values.cronjob.schedule }}
+  timeZone: {{ .Values.cronjob.timeZone }}
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: {{ .Values.configuration.maximumIteration }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            {{- include "istio-upgrade-worker.podlabels" . | nindent 12 }}
+        spec: 
+          serviceAccount: {{ .Release.Name }}
+          volumes:
+          - name: deployment-freeze
+            configMap:
+              name: {{ .Release.Name }}-deployment-freeze
+          containers:
+          - name: istio-upgrade-worker
+            image: "{{ .Values.cronjob.image }}:{{ .Values.cronjob.tag }}"
+            imagePullPolicy: Always
+            volumeMounts:
+            - name: deployment-freeze
+              mountPath: /etc/config/deployment-freeze
+            envFrom:
+              - configMapRef:
+                  name: {{ .Release.Name }}
+              {{ if eq .Values.configuration.notificationMode "slack" }}
+              - secretMapRef:
+                  name: {{ .Values.configuration.slackWebhookSecretName }}
+              {{ end }}

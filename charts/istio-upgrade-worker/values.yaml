@@ -1,0 +1,45 @@
+cronjob:
+  image: "ghcr.io/gopaytech/istio-upgrade-worker"
+  tag: "nightly"
+  schedule: "32 5 * * *"
+  timeZone: 'Asia/Jakarta'
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 100Mi
+  requests:
+    cpu: 100m
+    memory: 20Mi
+
+serviceAccount:
+  imagePullSecrets: []
+  automountServiceAccountToken: true
+
+podLabels: {}
+
+configuration:
+  clusterName: "my-cluster"
+  rolloutIntervalSecond: 30
+  maximumPercentageRolloutInSingleExecution: 20
+  maximumIteration: 5
+  preUpgradeNotificationSecond: 600
+
+  enableDeploymentFreeze: true
+  deploymentFreezeDates:
+  - "2024-01-01"
+  enableRolloutAtWeekend: false
+
+  timeLocation: "Asia/Jakarta"
+  timeFormat: "2006-01-02"
+
+  storageMode: "configmap"
+  storageConfigMapName: "istio-auto-upgrade-config"
+  storageConfigMapNameSpace: "istio-system"
+
+  notificationMode: slack
+  slackWebhookSecretName: slack-webhook-secret
+
+  istioNamespaceCanaryLabel: istio.io/rev=default
+  istioNamespaceLabel: istio-injection=enabled
+

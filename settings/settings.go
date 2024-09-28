@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	TotalRolloutLessThan100Percentage = errors.New("total services that will be rollouted is less then 100%, please increase environment variable for MAXIMUM_PERCENTAGE_ROLLOUT_SINGLE_EXECUTION or MAXIMUM_ITERATION")
+	ErrTotalRolloutLessThan100Percentage = errors.New("total services that will be rollouted is less then 100%, please increase environment variable for MAXIMUM_PERCENTAGE_ROLLOUT_SINGLE_EXECUTION or MAXIMUM_ITERATION")
 )
 
 type Settings struct {
@@ -15,7 +15,7 @@ type Settings struct {
 	RolloutIntervalSecond                     int    `required:"true" envconfig:"ROLLOUT_INTERVAL_SECOND" default:"30"`
 	MaximumPercentageRolloutInSingleExecution int    `required:"true" envconfig:"MAXIMUM_PERCENTAGE_ROLLOUT_SINGLE_EXECUTION" default:"20"`
 	MaximumIteration                          int    `required:"true" envconfig:"MAXIMUM_ITERATION" default:"5"`
-	PreUpgradeNotificationSecond              int    `required:"true" envconfig:"PRE_UPGRADE_NOTIFICATION_SECOND" default:"1800"`
+	PreUpgradeNotificationSecond              int    `required:"true" envconfig:"PRE_UPGRADE_NOTIFICATION_SECOND" default:"600"`
 
 	EnableDeploymentFreeze         bool   `required:"true" envconfig:"ENABLE_DEPLOYMENT_FREEZE" default:"true"`
 	DeploymentFreezeConfigFilePath string `required:"true" envconfig:"DEPLOYMENT_FREEZE_CONFIG_FILE_PATH"`
@@ -38,7 +38,7 @@ type Settings struct {
 
 func (s Settings) Validation() error {
 	if s.MaximumPercentageRolloutInSingleExecution*s.MaximumIteration < 100 {
-		return TotalRolloutLessThan100Percentage
+		return ErrTotalRolloutLessThan100Percentage
 	}
 
 	return nil
