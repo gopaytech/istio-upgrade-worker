@@ -103,18 +103,23 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 	}
 
 	if currentDate == upgradeConfig.RolloutRestartDate || currentDate.After(upgradeConfig.RolloutRestartDate) && upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration {
+		log.Println("start the upgrading process")
+
+		log.Println("calculated upgrade istio deployments")
 		upgradedDeployments, err := upgrader.calculatedUpgradedIstioDeployments(ctx, upgradeConfig)
 		if err != nil {
 			log.Println("failed to calculated upgraded istio deployments")
 			return err
 		}
 
+		log.Println("calculated upgrade istio statefulsets")
 		upgradedStatefulSets, err := upgrader.calculatedUpgradedIstioStatefulSets(ctx, upgradeConfig)
 		if err != nil {
 			log.Println("failed to calculated upgraded istio statefulsets")
 			return err
 		}
 
+		log.Println("sending the pre upgrade notification")
 		preUpgradeNotification := types.Notification{
 			Title:   fmt.Sprintf("[Upgrade Notification] Cluster %s Istio service mesh workload will be upgraded in %s seconds to version %s!\n", upgradeConfig.ClusterName, strconv.Itoa(upgrader.Settings.PreUpgradeNotificationSecond), upgradeConfig.Version.String()),
 			Message: fmt.Sprintf("%d of deployments and %d of statefulsets across namespaces will be restarted", len(upgradedDeployments), len(upgradedStatefulSets)),
@@ -128,8 +133,10 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		time.Sleep(time.Duration(upgrader.Settings.PreUpgradeNotificationSecond) * time.Second)
 
+		log.Printf("start rollout restarting %d deployments & %d statefulsets\n", len(upgradedDeployments), len(upgradedStatefulSets))
 		failedDeployments, failedStatefulSets := upgrader.Restart(ctx, upgradedDeployments, upgradedStatefulSets)
 
+		log.Println("sending the post upgrade notification")
 		postUpgradeNotification := types.Notification{
 			Title:   fmt.Sprintf("[Upgrade Notification] Phase %d of Cluster %s Istio service mesh workload will already upgraded to version %s!\n", upgradeConfig.Iteration, upgradeConfig.ClusterName, upgradeConfig.Version.String()),
 			Message: fmt.Sprintf("%d of deployments and %d of statefulsets across namespaces already restarted. while %d of deployments & %d of statefulsets failed to restart", len(upgradedDeployments)-len(failedDeployments), len(upgradedStatefulSets)-len(failedStatefulSets), len(failedDeployments), len(failedStatefulSets)),
@@ -141,6 +148,7 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 			return err
 		}
 
+		log.Println("increase iteration")
 		err = upgrader.increaseIteration(ctx, upgradeConfig)
 		if err != nil {
 			log.Println("failed to increase the iteration: ", err)
@@ -179,6 +187,8 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 				}
 			}
 		}
+
+		log.Println("something is wrong with the codebase")
 	}
 
 	return nil
