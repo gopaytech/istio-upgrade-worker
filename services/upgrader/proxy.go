@@ -189,6 +189,9 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 		}
 
 		log.Println("something is wrong with the codebase")
+		log.Println(currentDate == upgradeConfig.RolloutRestartDate)
+		log.Println(currentDate.After(upgradeConfig.RolloutRestartDate))
+		log.Println(upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration)
 	}
 
 	return nil
