@@ -33,7 +33,7 @@ type Settings struct {
 	NotificationSlackWebhook string `envconfig:"NOTIFICATION_SLACK_WEBHOOK"`
 
 	IstioNamespaceCanaryLabel string `required:"true" envconfig:"ISTIO_NAMESPACE_CANARY_LABEL" default:"istio.io/rev=default"`
-	IstioNamespaceLabel       string `required:"true" envconfig:"ISTIO_NAMESPACE_CANARY_LABEL" default:"istio-injection=enabled"`
+	IstioNamespaceLabel       string `required:"true" envconfig:"ISTIO_NAMESPACE_LABEL" default:"istio-injection=enabled"`
 }
 
 func (s Settings) Validation() error {

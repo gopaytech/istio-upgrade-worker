@@ -28,4 +28,4 @@ data:
   NOTIFICATION_MODE: "{{ .Values.configuration.notificationMode }}"
 
   ISTIO_NAMESPACE_CANARY_LABEL: "{{ .Values.configuration.istioNamespaceCanaryLabel }}"
-  ISTIO_NAMESPACE_CANARY_LABEL: "{{ .Values.configuration.istioNamespaceLabel }}"
+  ISTIO_NAMESPACE_LABEL: "{{ .Values.configuration.istioNamespaceLabel }}"
