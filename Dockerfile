@@ -12,6 +12,8 @@ RUN CGO_ENABLED=0 go build main.go
 #################
 FROM gcr.io/distroless/base
 
+ENV TZ="Asia/Jakarta"
+
 COPY --from=builder /app/main /
 
 CMD ["/main"]

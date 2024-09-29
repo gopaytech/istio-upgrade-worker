@@ -3,8 +3,8 @@ entries:
   istio-upgrade-worker:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2024-09-29T09:58:33.355057+07:00"
-    digest: d225869bd30dd4eded6cc2470ef53755092855bd0eddab2f070c5f90b4f92cca
+    created: "2024-09-29T10:47:30.651282+07:00"
+    digest: a34757e30ffaa1dbf3936010aef4af1cda22eadab9b9744ba82db220eacfe29e
     home: https://github.com/gopaytech/istio-upgrade-worker
     maintainers:
     - email: zufardhiyaulhaq@gmail.com
@@ -15,4 +15,4 @@ entries:
     urls:
     - istio-upgrade-worker-1.0.0.tgz
     version: 1.0.0
-generated: "2024-09-29T09:58:33.353057+07:00"
+generated: "2024-09-29T10:47:30.650808+07:00"

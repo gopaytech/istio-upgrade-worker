@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 rules:
 - apiGroups: ["apps"]
-  resources: ["deployments"]
+  resources: ["deployments", "statefulsets"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps"]
