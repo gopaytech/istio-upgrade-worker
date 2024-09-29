@@ -37,10 +37,10 @@ helm install my-istio-upgrade-worker istio-upgrade-worker/istio-upgrade-worker -
 | cronjob.tag | string | `"master"` |  |
 | cronjob.timeZone | string | `"Asia/Jakarta"` |  |
 | podLabels | object | `{}` |  |
-| resources.limits.cpu | string | `"200m"` |  |
-| resources.limits.memory | string | `"100Mi"` |  |
-| resources.requests.cpu | string | `"100m"` |  |
-| resources.requests.memory | string | `"20Mi"` |  |
+| resources.limits.cpu | string | `"1024m"` |  |
+| resources.limits.memory | string | `"1024Mi"` |  |
+| resources.requests.cpu | string | `"256m"` |  |
+| resources.requests.memory | string | `"256Mi"` |  |
 | serviceAccount.automountServiceAccountToken | bool | `true` |  |
 | serviceAccount.imagePullSecrets | list | `[]` |  |
 

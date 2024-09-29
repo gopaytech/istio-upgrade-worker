@@ -40,3 +40,4 @@ spec:
               - secretMapRef:
                   name: {{ .Values.configuration.slackWebhookSecretName }}
               {{ end }}
+            resources: {{ .Values.resources | toYaml  | nindent 14 }}
