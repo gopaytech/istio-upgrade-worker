@@ -97,6 +97,7 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		err := upgrader.NotificationService.Send(ctx, notification)
 		if err != nil {
+			log.Println("failed to send 1 day upgrade notification")
 			return err
 		}
 	}
@@ -104,11 +105,13 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 	if currentDate == upgradeConfig.RolloutRestartDate || currentDate.After(upgradeConfig.RolloutRestartDate) && upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration {
 		upgradedDeployments, err := upgrader.calculatedUpgradedIstioDeployments(ctx, upgradeConfig)
 		if err != nil {
+			log.Println("failed to calculated upgraded istio deployments")
 			return err
 		}
 
 		upgradedStatefulSets, err := upgrader.calculatedUpgradedIstioStatefulSets(ctx, upgradeConfig)
 		if err != nil {
+			log.Println("failed to calculated upgraded istio statefulsets")
 			return err
 		}
 
@@ -119,6 +122,7 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		err = upgrader.NotificationService.Send(ctx, preUpgradeNotification)
 		if err != nil {
+			log.Println("failed to send upgrade notification")
 			return err
 		}
 
@@ -133,6 +137,7 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		err = upgrader.NotificationService.Send(ctx, postUpgradeNotification)
 		if err != nil {
+			log.Println("failed to send post upgrade notification")
 			return err
 		}
 
@@ -140,6 +145,39 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 		if err != nil {
 			log.Println("failed to increase the iteration: ", err)
 			return err
+		}
+	} else {
+		if currentDate.Before(upgradeConfig.RolloutRestartDate) {
+			log.Println("skip rollout restart since it's before the rollout restart date")
+		}
+
+		if upgradeConfig.Iteration > upgrader.Settings.MaximumIteration {
+			log.Println("skip rollout restart since iteration is already more than maximum iteration configured")
+
+			upgradedDeployments, err := upgrader.calculatedUpgradedIstioDeployments(ctx, upgradeConfig)
+			if err != nil {
+				log.Println("failed to calculated upgraded istio deployments")
+				return err
+			}
+
+			upgradedStatefulSets, err := upgrader.calculatedUpgradedIstioStatefulSets(ctx, upgradeConfig)
+			if err != nil {
+				log.Println("failed to calculated upgraded istio statefulsets")
+				return err
+			}
+
+			if len(upgradedDeployments)+len(upgradedStatefulSets) > 0 {
+				iterationBreachUpgradeNotification := types.Notification{
+					Title:   fmt.Sprintf("[Upgrade Notification] Cluster %s Istio service mesh still have old version of istio!\n", upgradeConfig.ClusterName),
+					Message: fmt.Sprintf("%d of deployments and %d of statefulsets across namespaces still use old version and cannot be upgraded because already breach the maximum iteration!", len(upgradedDeployments), len(upgradedStatefulSets)),
+				}
+
+				err = upgrader.NotificationService.Send(ctx, iterationBreachUpgradeNotification)
+				if err != nil {
+					log.Println("failed to send iteration breach upgrade notification")
+					return err
+				}
+			}
 		}
 	}
 
