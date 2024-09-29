@@ -204,6 +204,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioDeployments(ctx context.Co
 	}
 
 	totalDeplopymentsIteration := upgrader.getNumberOfRestartedByIteration(upgradeConfig.Iteration, len(deployments))
+	log.Printf("%d out of %d deployments will be rollout restarted\n", totalDeplopymentsIteration, len(deployments))
 
 	for iteration, deployment := range deployments {
 		if iteration < totalDeplopymentsIteration {
@@ -215,6 +216,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioDeployments(ctx context.Co
 			upgradedDeployments = append(upgradedDeployments, upgradeDeployment)
 		}
 	}
+	log.Printf("%d out of %d deployments will be rollout restarted\n", len(upgradedDeployments), len(deployments))
 
 	return upgradedDeployments, nil
 }
@@ -229,6 +231,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioStatefulSets(ctx context.C
 	}
 
 	totalStatefulSetsIteration := upgrader.getNumberOfRestartedByIteration(upgradeConfig.Iteration, len(statefulsets))
+	log.Printf("%d out of %d statefulsets will be rollout restarted\n", totalStatefulSetsIteration, len(statefulsets))
 
 	for iteration, statefulset := range statefulsets {
 		if iteration < totalStatefulSetsIteration {
@@ -240,6 +243,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioStatefulSets(ctx context.C
 			upgradedStatefulSets = append(upgradedStatefulSets, upgradeStatefulSet)
 		}
 	}
+	log.Printf("%d out of %d deployments will be rollout restarted\n", len(upgradedStatefulSets), len(statefulsets))
 
 	return upgradedStatefulSets, nil
 }
