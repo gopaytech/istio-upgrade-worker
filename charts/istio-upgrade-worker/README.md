@@ -28,7 +28,7 @@ helm install my-istio-upgrade-worker istio-upgrade-worker/istio-upgrade-worker -
 | configuration.rolloutIntervalSecond | int | `30` |  |
 | configuration.slackWebhookSecretName | string | `"slack-webhook-secret"` |  |
 | configuration.storageConfigMapName | string | `"istio-auto-upgrade-config"` |  |
-| configuration.storageConfigMapNameSpace | string | `"istio-system"` |  |
+| configuration.storageConfigMapNamespace | string | `"istio-system"` |  |
 | configuration.storageMode | string | `"configmap"` |  |
 | configuration.timeFormat | string | `"2006-01-02"` |  |
 | configuration.timeLocation | string | `"Asia/Jakarta"` |  |

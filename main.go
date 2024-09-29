@@ -17,16 +17,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("successfully load the settings")
 
 	kubernetesConfig, err := config.LoadKubernetes()
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("successfully load the kubernetes config")
 
 	deploymentFreezeConfig, err := config.LoadDeploymentFreeze(settings)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("successfully load the deployment freeze config")
 
 	notificationService, err := notification.NotificationFactory(settings)
 	if err != nil {

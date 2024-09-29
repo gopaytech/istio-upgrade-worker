@@ -236,13 +236,13 @@ func (upgrader *ProxyUpgrader) getUpgradeConfig(ctx context.Context) (types.Upgr
 		return types.UpgradeProxyConfig{}, err
 	}
 
-	configMapVersion, ok := upgradeConfigMap.Data["rollout_restart_date"]
+	configMapVersion, ok := upgradeConfigMap.Data["version"]
 	if !ok {
 		log.Println("failed to get rollout_restart_date in the configmap")
 		return types.UpgradeProxyConfig{}, err
 	}
 
-	configMapIteration, ok := upgradeConfigMap.Data["rollout_restart_date"]
+	configMapIteration, ok := upgradeConfigMap.Data["iteration"]
 	if !ok {
 		log.Println("failed to get rollout_restart_date in the configmap")
 		return types.UpgradeProxyConfig{}, err
