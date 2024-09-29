@@ -397,6 +397,7 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioDeployments(ctx context.Context, 
 		log.Println("failed getting istio namespaces: ", err.Error())
 		return nil, err
 	}
+	log.Printf("find %d of namespaces is on Istio mesh\n", len(namespaces))
 
 	upgradedDeployments := make([]appsv1.Deployment, 0)
 	for _, namespace := range namespaces {
@@ -405,12 +406,14 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioDeployments(ctx context.Context, 
 			log.Println("failed to get deployments by namespace:", namespace.Name, err.Error())
 			return nil, err
 		}
+		log.Printf("find %d of deployments is on Istio mesh in namespace %s\n", len(deployments), namespace.Name)
 
 		namespaceUpgradedDeployments, err := upgrader.filterDeploymentsByProxyVersion(ctx, namespace.Name, deployments, &upgradeConfig.Version)
 		if err != nil {
 			log.Println("failed to filter deployments by the currently upgraded proxy version: ", err.Error())
 			return nil, err
 		}
+		log.Printf("find %d of deployments is on Istio mesh in namespace %s can be upgraded\n", len(namespaceUpgradedDeployments), namespace.Name)
 
 		upgradedDeployments = append(upgradedDeployments, namespaceUpgradedDeployments...)
 	}
@@ -454,6 +457,7 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioStatefulSets(ctx context.Context,
 		log.Println("failed getting istio namespaces: ", err.Error())
 		return nil, err
 	}
+	log.Printf("find %d of namespaces is on Istio mesh\n", len(namespaces))
 
 	upgradedStatefulSets := make([]appsv1.StatefulSet, 0)
 	for _, namespace := range namespaces {
@@ -462,12 +466,14 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioStatefulSets(ctx context.Context,
 			log.Printf("failed to get deployments by namespace %s: %v\n", namespace.Name, err.Error())
 			return nil, err
 		}
+		log.Printf("find %d of statefulsets is on Istio mesh in namespace %s\n", len(statefulsets), namespace.Name)
 
 		namespaceUpgradedStatefulSets, err := upgrader.filterStatefulSetsByProxyVersion(ctx, namespace.Name, statefulsets, &upgradeConfig.Version)
 		if err != nil {
 			log.Println("failed to filter deployments by the currently upgraded proxy version: ", err.Error())
 			return nil, err
 		}
+		log.Printf("find %d of statefulsets is on Istio mesh in namespace %s can be upgraded\n", len(namespaceUpgradedStatefulSets), namespace.Name)
 
 		upgradedStatefulSets = append(upgradedStatefulSets, namespaceUpgradedStatefulSets...)
 	}
