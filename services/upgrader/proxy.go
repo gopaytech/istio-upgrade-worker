@@ -102,7 +102,7 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 		}
 	}
 
-	if currentDate == upgradeConfig.RolloutRestartDate || currentDate.After(upgradeConfig.RolloutRestartDate) && upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration {
+	if (DateEqual(currentDate, upgradeConfig.RolloutRestartDate) || currentDate.After(upgradeConfig.RolloutRestartDate)) && upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration {
 		log.Println("start the upgrading process")
 
 		log.Println("calculated upgrade istio deployments")
@@ -189,9 +189,6 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 		}
 
 		log.Println("something is wrong with the codebase")
-		log.Println(currentDate == upgradeConfig.RolloutRestartDate)
-		log.Println(currentDate.After(upgradeConfig.RolloutRestartDate))
-		log.Println(upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration)
 	}
 
 	return nil
@@ -516,4 +513,8 @@ func (upgrader *ProxyUpgrader) getPodProxyVersion(pod v1.Pod) (ver string) {
 		}
 	}
 	return
+}
+
+func DateEqual(date1, date2 time.Time) bool {
+	return date1.Year() == date2.Year() && date1.Month() == date2.Month() && date1.Day() == date2.Day()
 }
