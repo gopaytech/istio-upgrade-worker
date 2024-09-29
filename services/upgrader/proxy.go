@@ -200,7 +200,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioDeployments(ctx context.Co
 	deployments, err := upgrader.getUpgradedIstioDeployments(ctx, upgradeConfig)
 	if err != nil {
 		log.Println("failed to get upgraded istio deployment: ", err)
-		return upgradedDeployments, nil
+		return upgradedDeployments, err
 	}
 
 	totalDeplopymentsIteration := upgrader.getNumberOfRestartedByIteration(upgradeConfig.Iteration, len(deployments))
@@ -225,7 +225,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioStatefulSets(ctx context.C
 	statefulsets, err := upgrader.getUpgradedIstioStatefulSets(ctx, upgradeConfig)
 	if err != nil {
 		log.Println("failed to get upgraded istio statefulset: ", err)
-		return upgradedStatefulSets, nil
+		return upgradedStatefulSets, err
 	}
 
 	totalStatefulSetsIteration := upgrader.getNumberOfRestartedByIteration(upgradeConfig.Iteration, len(statefulsets))
@@ -250,7 +250,7 @@ func (upgrader *ProxyUpgrader) Restart(ctx context.Context, upgradedDeployments 
 
 	for _, deployment := range upgradedDeployments {
 		if err := upgrader.DeploymentService.RolloutRestart(ctx, deployment.namespace, deployment.name); err != nil {
-			log.Printf("failed to rollout restart deployment: %s in namespace: %s reason: %s", deployment.namespace, deployment.name, err.Error())
+			log.Printf("failed to rollout restart deployment: %s in namespace: %s reason: %s\n", deployment.namespace, deployment.name, err.Error())
 			failedDeployments = append(failedDeployments, deployment)
 			continue
 		}
@@ -260,7 +260,7 @@ func (upgrader *ProxyUpgrader) Restart(ctx context.Context, upgradedDeployments 
 
 	for _, statefulSet := range upgradedStatefulSets {
 		if err := upgrader.StatefulsetService.RolloutRestart(ctx, statefulSet.namespace, statefulSet.name); err != nil {
-			log.Printf("failed to rollout restart statefulSet: %s in namespace: %s reason: %s", statefulSet.namespace, statefulSet.name, err.Error())
+			log.Printf("failed to rollout restart statefulSet: %s in namespace: %s reason: %s\n", statefulSet.namespace, statefulSet.name, err.Error())
 			failedStatefulSets = append(failedStatefulSets, statefulSet)
 			continue
 		}
@@ -274,7 +274,7 @@ func (upgrader *ProxyUpgrader) Restart(ctx context.Context, upgradedDeployments 
 func (upgrader *ProxyUpgrader) getUpgradeConfig(ctx context.Context) (types.UpgradeProxyConfig, error) {
 	upgradeConfigMap, err := upgrader.ConfigMapService.Get(ctx, upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
 	if err != nil {
-		log.Printf("failed getting configmap %s on namespace %s", upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
+		log.Printf("failed getting configmap %s on namespace %s\n", upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
 		return types.UpgradeProxyConfig{}, err
 	}
 
@@ -340,7 +340,7 @@ func (upgrader *ProxyUpgrader) getUpgradeConfig(ctx context.Context) (types.Upgr
 func (upgrader *ProxyUpgrader) increaseIteration(ctx context.Context, upgradeConfig types.UpgradeProxyConfig) error {
 	upgradeConfigMap, err := upgrader.ConfigMapService.Get(ctx, upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
 	if err != nil {
-		log.Printf("failed getting configmap %s on namespace %s", upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
+		log.Printf("failed getting configmap %s on namespace %s\n", upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
 		return err
 	}
 
@@ -398,7 +398,7 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioDeployments(ctx context.Context, 
 	for _, namespace := range namespaces {
 		deployments, err := upgrader.DeploymentService.FindByNamespace(ctx, namespace.Name)
 		if err != nil {
-			log.Println("failed to get deployments by namespace %s: %v", namespace.Name, err.Error())
+			log.Println("failed to get deployments by namespace:", namespace.Name, err.Error())
 			return nil, err
 		}
 
@@ -420,7 +420,7 @@ func (upgrader *ProxyUpgrader) filterDeploymentsByProxyVersion(ctx context.Conte
 		if *deployment.Spec.Replicas > 0 {
 			pods, err := upgrader.PodService.FindByNamespaceAndLabels(ctx, namespace, deployment.Spec.Selector.MatchLabels)
 			if err != nil {
-				log.Printf("failed to find pods based on namespace and labels on the deployment %s namespace %s: %v", deployment.Name, deployment.Namespace, err)
+				log.Printf("failed to find pods based on namespace and labels on the deployment %s namespace %s: %v\n", deployment.Name, deployment.Namespace, err)
 				return nil, err
 			}
 
@@ -429,7 +429,7 @@ func (upgrader *ProxyUpgrader) filterDeploymentsByProxyVersion(ctx context.Conte
 				if istioProxyVersion != "" {
 					currentProxyVersion, err := version.NewVersion(istioProxyVersion)
 					if err != nil {
-						log.Println("failed to find parse istio proxy on deployment %s namespace %s pod %s: %v", deployment.Name, deployment.Namespace, pod.Name, err.Error())
+						log.Println("failed to find parse istio proxy on deployment", deployment.Name, "namespace", deployment.Namespace, "pod", pod.Name, ":", err.Error())
 						return nil, err
 					}
 
@@ -455,7 +455,7 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioStatefulSets(ctx context.Context,
 	for _, namespace := range namespaces {
 		statefulsets, err := upgrader.StatefulsetService.FindByNamespace(ctx, namespace.Name)
 		if err != nil {
-			log.Println("failed to get deployments by namespace %s: %v", namespace.Name, err.Error())
+			log.Printf("failed to get deployments by namespace %s: %v\n", namespace.Name, err.Error())
 			return nil, err
 		}
 
@@ -477,7 +477,7 @@ func (upgrader *ProxyUpgrader) filterStatefulSetsByProxyVersion(ctx context.Cont
 		if *statefulset.Spec.Replicas > 0 {
 			pods, err := upgrader.PodService.FindByNamespaceAndLabels(ctx, namespace, statefulset.Spec.Selector.MatchLabels)
 			if err != nil {
-				log.Printf("failed to find pods based on namespace and labels on the statefulset %s namespace %s: %v", statefulset.Name, statefulset.Namespace, err)
+				log.Printf("failed to find pods based on namespace and labels on the statefulset %s namespace %s: %v\n", statefulset.Name, statefulset.Namespace, err)
 				return nil, err
 			}
 
@@ -486,7 +486,7 @@ func (upgrader *ProxyUpgrader) filterStatefulSetsByProxyVersion(ctx context.Cont
 				if istioProxyVersion != "" {
 					currentProxyVersion, err := version.NewVersion(istioProxyVersion)
 					if err != nil {
-						log.Println("failed to find parse istio proxy on statefulset %s namespace %s pod %s: %v", statefulset.Name, statefulset.Namespace, pod.Name, err.Error())
+						log.Printf("failed to find parse istio proxy on statefulset %s namespace %s pod %s: %v\n", statefulset.Name, statefulset.Namespace, pod.Name, err.Error())
 						return nil, err
 					}
 
