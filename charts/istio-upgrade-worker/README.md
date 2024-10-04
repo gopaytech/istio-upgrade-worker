@@ -34,7 +34,7 @@ helm install my-istio-upgrade-worker istio-upgrade-worker/istio-upgrade-worker -
 | configuration.timeLocation | string | `"Asia/Jakarta"` |  |
 | cronjob.image | string | `"ghcr.io/gopaytech/istio-upgrade-worker"` |  |
 | cronjob.schedule | string | `"32 5 * * *"` |  |
-| cronjob.tag | string | `"master"` |  |
+| cronjob.tag | string | `"v1.0.0"` |  |
 | cronjob.timeZone | string | `"Asia/Jakarta"` |  |
 | podLabels | object | `{}` |  |
 | resources.limits.cpu | string | `"1024m"` |  |

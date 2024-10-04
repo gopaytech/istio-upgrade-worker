@@ -1,6 +1,6 @@
 cronjob:
   image: "ghcr.io/gopaytech/istio-upgrade-worker"
-  tag: "master"
+  tag: "v1.0.0"
   schedule: "32 5 * * *"
   timeZone: 'Asia/Jakarta'
 
