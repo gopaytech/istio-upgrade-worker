@@ -21,11 +21,6 @@ type Lark struct {
 
 func (s Lark) Send(ctx context.Context, upgrade types.Notification) error {
 	bot := golark.NewNotificationBot(s.Settings.NotificationLarkWebhook)
-	_, err := bot.GetTenantAccessTokenInternal(true)
-	if err != nil {
-		log.Printf("failed to get tenant access token internal lark: %v\n", err.Error())
-		return err
-	}
 
 	content := golark.NewPostBuilder().
 		Title(upgrade.Title).
@@ -33,7 +28,7 @@ func (s Lark) Send(ctx context.Context, upgrade types.Notification) error {
 		Render()
 	buffer := golark.NewMsgBuffer(golark.MsgPost).Post(content).Build()
 
-	_, err = bot.PostMessage(buffer)
+	_, err := bot.PostNotificationV2(buffer)
 	if err != nil {
 		log.Printf("failed to send lark notification: %v\n", err.Error())
 		return err
