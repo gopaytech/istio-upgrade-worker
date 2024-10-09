@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"strconv"
 	"time"
 
@@ -35,6 +36,7 @@ func (s Slack) Send(ctx context.Context, upgrade types.Notification) error {
 
 	err := slack.PostWebhook(s.Settings.NotificationSlackWebhook, &msg)
 	if err != nil {
+		log.Printf("failed to send slack notification: %v\n", err.Error())
 		return err
 	}
 

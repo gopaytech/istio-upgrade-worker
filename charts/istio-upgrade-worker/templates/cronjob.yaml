@@ -40,5 +40,9 @@ spec:
               - secretRef:
                   name: {{ .Values.configuration.slackWebhookSecretName }}
               {{ end }}
+              {{ if eq .Values.configuration.notificationMode "lark" }}
+              - secretRef:
+                  name: {{ .Values.configuration.larkWebhookSecretName }}
+              {{ end }}
             resources: {{ .Values.resources | toYaml  | nindent 14 }}
           restartPolicy: OnFailure

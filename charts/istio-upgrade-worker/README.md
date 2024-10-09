@@ -1,6 +1,6 @@
 # istio-upgrade-worker
 
-![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.0.0](https://img.shields.io/badge/AppVersion-1.0.0-informational?style=flat-square) [![made with Go](https://img.shields.io/badge/made%20with-Go-brightgreen)](http://golang.org) [![Github main branch build](https://img.shields.io/github/workflow/status/gopaytech/istio-upgrade-worker/Main)](https://github.com/gopaytech/istio-upgrade-worker/actions/workflows/main.yml) [![GitHub issues](https://img.shields.io/github/issues/gopaytech/istio-upgrade-worker)](https://github.com/gopaytech/istio-upgrade-worker/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/gopaytech/istio-upgrade-worker)](https://github.com/gopaytech/istio-upgrade-worker/pulls)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/istio-upgrade-worker)](https://artifacthub.io/packages/search?repo=istio-upgrade-worker)
+![Version: 1.1.0](https://img.shields.io/badge/Version-1.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.1.0](https://img.shields.io/badge/AppVersion-1.1.0-informational?style=flat-square) [![made with Go](https://img.shields.io/badge/made%20with-Go-brightgreen)](http://golang.org) [![Github main branch build](https://img.shields.io/github/workflow/status/gopaytech/istio-upgrade-worker/Main)](https://github.com/gopaytech/istio-upgrade-worker/actions/workflows/main.yml) [![GitHub issues](https://img.shields.io/github/issues/gopaytech/istio-upgrade-worker)](https://github.com/gopaytech/istio-upgrade-worker/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/gopaytech/istio-upgrade-worker)](https://github.com/gopaytech/istio-upgrade-worker/pulls)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/istio-upgrade-worker)](https://artifacthub.io/packages/search?repo=istio-upgrade-worker)
 
 ## Installing
 
@@ -21,6 +21,7 @@ helm install my-istio-upgrade-worker istio-upgrade-worker/istio-upgrade-worker -
 | configuration.enableRolloutAtWeekend | bool | `false` |  |
 | configuration.istioNamespaceCanaryLabel | string | `"istio.io/rev=default"` |  |
 | configuration.istioNamespaceLabel | string | `"istio-injection=enabled"` |  |
+| configuration.larkWebhookSecretName | string | `"lark-webhook-secret"` |  |
 | configuration.maximumIteration | int | `5` |  |
 | configuration.maximumPercentageRolloutInSingleExecution | int | `20` |  |
 | configuration.notificationMode | string | `"slack"` |  |
@@ -34,7 +35,7 @@ helm install my-istio-upgrade-worker istio-upgrade-worker/istio-upgrade-worker -
 | configuration.timeLocation | string | `"Asia/Jakarta"` |  |
 | cronjob.image | string | `"ghcr.io/gopaytech/istio-upgrade-worker"` |  |
 | cronjob.schedule | string | `"32 5 * * *"` |  |
-| cronjob.tag | string | `"v1.0.0"` |  |
+| cronjob.tag | string | `"v1.1.0"` |  |
 | cronjob.timeZone | string | `"Asia/Jakarta"` |  |
 | podLabels | object | `{}` |  |
 | resources.limits.cpu | string | `"1024m"` |  |
