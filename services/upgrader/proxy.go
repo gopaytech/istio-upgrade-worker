@@ -513,6 +513,8 @@ func (upgrader *ProxyUpgrader) filterStatefulSetsByProxyVersion(ctx context.Cont
 
 func (upgrader *ProxyUpgrader) getPodProxyVersion(pod v1.Pod) (ver string) {
 	containers := pod.Spec.Containers
+	initContainers := pod.Spec.InitContainers
+
 	for _, container := range containers {
 		if container.Name == proxyContainerName {
 			containerImage := container.Image
@@ -522,7 +524,20 @@ func (upgrader *ProxyUpgrader) getPodProxyVersion(pod v1.Pod) (ver string) {
 			}
 		}
 	}
-	return
+
+	if ver == "" {
+		for _, initContainer := range initContainers {
+			if initContainer.Name == proxyContainerName {
+				initContainerImage := initContainer.Image
+				splitImageNames := strings.Split(initContainerImage, ":")
+				if len(splitImageNames) >= 2 {
+					ver = splitImageNames[1]
+				}
+			}
+		}
+	}
+
+	return ver
 }
 
 func DateEqual(date1, date2 time.Time) bool {
