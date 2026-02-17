@@ -3,13 +3,14 @@ package upgrader
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gopaytech/istio-upgrade-worker/config"
+	"github.com/gopaytech/istio-upgrade-worker/pkg/logger"
+	"github.com/gopaytech/istio-upgrade-worker/pkg/metrics"
 	"github.com/gopaytech/istio-upgrade-worker/services/kubernetes"
 	"github.com/gopaytech/istio-upgrade-worker/services/notification"
 	"github.com/gopaytech/istio-upgrade-worker/settings"
@@ -65,26 +66,31 @@ func NewProxyUpgrader(settings settings.Settings, deploymentFreezeConfig config.
 func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 	upgradeConfig, err := upgrader.getUpgradeConfig(ctx)
 	if err != nil {
-		log.Println("failed to get upgrade config")
+		logger.Log().Error().Err(err).Msg("failed to get upgrade config")
 		return err
 	}
 
+	// Set current iteration metric
+	metrics.IterationCurrent.Set(float64(upgradeConfig.Iteration))
+
 	currentDate, err := upgrader.currentDate()
 	if err != nil {
-		log.Println("failed to get current date")
+		logger.Log().Error().Err(err).Msg("failed to get current date")
 		return err
 	}
 
 	if upgrader.Settings.EnableDeploymentFreeze {
 		if upgrader.isDeploymentFreeze(currentDate) {
-			log.Println("Today is a deployment freeze, will skip rollout restart deployment")
+			logger.Log().Info().Msg("Today is a deployment freeze, will skip rollout restart deployment")
+			metrics.WorkloadsSkipped.WithLabelValues("deployment_freeze").Inc()
 			return nil
 		}
 	}
 
 	if !upgrader.Settings.EnableRolloutAtWeekend {
 		if upgrader.isWeekend(currentDate) {
-			log.Println("Today is a weekend, will skip rollout restart deployment")
+			logger.Log().Info().Msg("Today is a weekend, will skip rollout restart deployment")
+			metrics.WorkloadsSkipped.WithLabelValues("weekend").Inc()
 			return nil
 		}
 	}
@@ -97,29 +103,29 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		err := upgrader.NotificationService.Send(ctx, notification)
 		if err != nil {
-			log.Println("failed to send 1 day upgrade notification")
+			logger.Log().Error().Err(err).Msg("failed to send 1 day upgrade notification")
 			return err
 		}
 	}
 
 	if (DateEqual(currentDate, upgradeConfig.RolloutRestartDate) || currentDate.After(upgradeConfig.RolloutRestartDate)) && upgradeConfig.Iteration <= upgrader.Settings.MaximumIteration {
-		log.Println("start the upgrading process")
+		logger.Log().Info().Msg("start the upgrading process")
 
-		log.Println("calculated upgrade istio deployments")
+		logger.Log().Info().Msg("calculated upgrade istio deployments")
 		upgradedDeployments, err := upgrader.calculatedUpgradedIstioDeployments(ctx, upgradeConfig)
 		if err != nil {
-			log.Println("failed to calculated upgraded istio deployments")
+			logger.Log().Error().Err(err).Msg("failed to calculate upgraded istio deployments")
 			return err
 		}
 
-		log.Println("calculated upgrade istio statefulsets")
+		logger.Log().Info().Msg("calculated upgrade istio statefulsets")
 		upgradedStatefulSets, err := upgrader.calculatedUpgradedIstioStatefulSets(ctx, upgradeConfig)
 		if err != nil {
-			log.Println("failed to calculated upgraded istio statefulsets")
+			logger.Log().Error().Err(err).Msg("failed to calculate upgraded istio statefulsets")
 			return err
 		}
 
-		log.Println("sending the pre upgrade notification")
+		logger.Log().Info().Msg("sending the pre upgrade notification")
 		preUpgradeNotification := types.Notification{
 			Title:   fmt.Sprintf("[Upgrade Notification] Cluster %s Istio service mesh workload will be upgraded in %s seconds to version %s!\n", upgradeConfig.ClusterName, strconv.Itoa(upgrader.Settings.PreUpgradeNotificationSecond), upgradeConfig.Version.String()),
 			Message: fmt.Sprintf("%d of deployments and %d of statefulsets across namespaces will be restarted", len(upgradedDeployments), len(upgradedStatefulSets)),
@@ -127,16 +133,16 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		err = upgrader.NotificationService.Send(ctx, preUpgradeNotification)
 		if err != nil {
-			log.Println("failed to send upgrade notification")
+			logger.Log().Error().Err(err).Msg("failed to send pre-upgrade notification")
 			return err
 		}
 
 		time.Sleep(time.Duration(upgrader.Settings.PreUpgradeNotificationSecond) * time.Second)
 
-		log.Printf("start rollout restarting %d deployments & %d statefulsets\n", len(upgradedDeployments), len(upgradedStatefulSets))
+		logger.Log().Info().Msgf("start rollout restarting %d deployments & %d statefulsets\n", len(upgradedDeployments), len(upgradedStatefulSets))
 		failedDeployments, failedStatefulSets := upgrader.Restart(ctx, upgradedDeployments, upgradedStatefulSets)
 
-		log.Println("sending the post upgrade notification")
+		logger.Log().Info().Msg("sending the post upgrade notification")
 		postUpgradeNotification := types.Notification{
 			Title:   fmt.Sprintf("[Upgrade Notification] Phase %d of Cluster %s Istio service mesh workload already upgraded to version %s!\n", upgradeConfig.Iteration, upgradeConfig.ClusterName, upgradeConfig.Version.String()),
 			Message: fmt.Sprintf("%d of deployments and %d of statefulsets across namespaces already restarted. while %d of deployments & %d of statefulsets failed to restart", len(upgradedDeployments)-len(failedDeployments), len(upgradedStatefulSets)-len(failedStatefulSets), len(failedDeployments), len(failedStatefulSets)),
@@ -144,33 +150,37 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 		err = upgrader.NotificationService.Send(ctx, postUpgradeNotification)
 		if err != nil {
-			log.Println("failed to send post upgrade notification")
+			logger.Log().Error().Err(err).Msg("failed to send post upgrade notification")
 			return err
 		}
 
-		log.Println("increase iteration")
-		err = upgrader.increaseIteration(ctx, upgradeConfig)
-		if err != nil {
-			log.Println("failed to increase the iteration: ", err)
-			return err
+		if !upgrader.Settings.DryRun {
+			logger.Log().Info().Msg("increasing iteration")
+			err = upgrader.increaseIteration(ctx, upgradeConfig)
+			if err != nil {
+				logger.Log().Error().Err(err).Msg("failed to increase iteration")
+				return err
+			}
+		} else {
+			logger.Log().Info().Msg("[DRY-RUN] skipping iteration increment")
 		}
 	} else {
 		if currentDate.Before(upgradeConfig.RolloutRestartDate) {
-			log.Println("skip rollout restart since it's before the rollout restart date")
+			logger.Log().Info().Msg("skip rollout restart since it's before the rollout restart date")
 		}
 
 		if upgradeConfig.Iteration > upgrader.Settings.MaximumIteration {
-			log.Println("skip rollout restart since iteration is already more than maximum iteration configured")
+			logger.Log().Info().Msg("skip rollout restart since iteration is already more than maximum iteration configured")
 
 			upgradedDeployments, err := upgrader.calculatedUpgradedIstioDeployments(ctx, upgradeConfig)
 			if err != nil {
-				log.Println("failed to calculated upgraded istio deployments")
+				logger.Log().Error().Err(err).Msg("failed to calculate upgraded istio deployments")
 				return err
 			}
 
 			upgradedStatefulSets, err := upgrader.calculatedUpgradedIstioStatefulSets(ctx, upgradeConfig)
 			if err != nil {
-				log.Println("failed to calculated upgraded istio statefulsets")
+				logger.Log().Error().Err(err).Msg("failed to calculate upgraded istio statefulsets")
 				return err
 			}
 
@@ -182,7 +192,7 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 
 				err = upgrader.NotificationService.Send(ctx, iterationBreachUpgradeNotification)
 				if err != nil {
-					log.Println("failed to send iteration breach upgrade notification")
+					logger.Log().Error().Err(err).Msg("failed to send iteration breach upgrade notification")
 					return err
 				}
 			}
@@ -197,12 +207,12 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioDeployments(ctx context.Co
 
 	deployments, err := upgrader.getUpgradedIstioDeployments(ctx, upgradeConfig)
 	if err != nil {
-		log.Println("failed to get upgraded istio deployment: ", err)
+		logger.Log().Error().Err(err).Msg("failed to get upgraded istio deployment")
 		return upgradedDeployments, err
 	}
 
 	totalDeplopymentsIteration := upgrader.getNumberOfRestartedByIteration(upgradeConfig.Iteration, len(deployments))
-	log.Printf("%d out of %d deployments will be rollout restarted\n", totalDeplopymentsIteration, len(deployments))
+	logger.Log().Info().Msgf("%d out of %d deployments will be rollout restarted\n", totalDeplopymentsIteration, len(deployments))
 
 	for iteration, deployment := range deployments {
 		if iteration < totalDeplopymentsIteration {
@@ -214,7 +224,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioDeployments(ctx context.Co
 			upgradedDeployments = append(upgradedDeployments, upgradeDeployment)
 		}
 	}
-	log.Printf("%d out of %d deployments will be rollout restarted\n", len(upgradedDeployments), len(deployments))
+	logger.Log().Info().Msgf("%d out of %d deployments will be rollout restarted\n", len(upgradedDeployments), len(deployments))
 
 	return upgradedDeployments, nil
 }
@@ -224,12 +234,12 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioStatefulSets(ctx context.C
 
 	statefulsets, err := upgrader.getUpgradedIstioStatefulSets(ctx, upgradeConfig)
 	if err != nil {
-		log.Println("failed to get upgraded istio statefulset: ", err)
+		logger.Log().Error().Err(err).Msg("failed to get upgraded istio statefulset")
 		return upgradedStatefulSets, err
 	}
 
 	totalStatefulSetsIteration := upgrader.getNumberOfRestartedByIteration(upgradeConfig.Iteration, len(statefulsets))
-	log.Printf("%d out of %d statefulsets will be rollout restarted\n", totalStatefulSetsIteration, len(statefulsets))
+	logger.Log().Info().Msgf("%d out of %d statefulsets will be rollout restarted\n", totalStatefulSetsIteration, len(statefulsets))
 
 	for iteration, statefulset := range statefulsets {
 		if iteration < totalStatefulSetsIteration {
@@ -241,31 +251,82 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioStatefulSets(ctx context.C
 			upgradedStatefulSets = append(upgradedStatefulSets, upgradeStatefulSet)
 		}
 	}
-	log.Printf("%d out of %d statefulsets will be rollout restarted\n", len(upgradedStatefulSets), len(statefulsets))
+	logger.Log().Info().Msgf("%d out of %d statefulsets will be rollout restarted\n", len(upgradedStatefulSets), len(statefulsets))
 
 	return upgradedStatefulSets, nil
 }
 
 func (upgrader *ProxyUpgrader) Restart(ctx context.Context, upgradedDeployments []DeploymentUpgrade, upgradedStatefulSets []StatefulSetUpgrade) ([]DeploymentUpgrade, []StatefulSetUpgrade) {
+	log := logger.Log()
 	var failedDeployments []DeploymentUpgrade
 	var failedStatefulSets []StatefulSetUpgrade
 
 	for _, deployment := range upgradedDeployments {
-		if err := upgrader.DeploymentService.RolloutRestart(ctx, deployment.namespace, deployment.name); err != nil {
-			log.Printf("failed to rollout restart deployment: %s in namespace: %s reason: %s\n", deployment.namespace, deployment.name, err.Error())
-			failedDeployments = append(failedDeployments, deployment)
+		// Check for context cancellation
+		if ctx.Err() != nil {
+			log.Warn().Msg("context cancelled, stopping restart loop")
+			break
+		}
+
+		if upgrader.Settings.DryRun {
+			log.Info().
+				Str("namespace", deployment.namespace).
+				Str("deployment", deployment.name).
+				Msg("[DRY-RUN] would restart deployment")
 			continue
 		}
+
+		if err := upgrader.DeploymentService.RolloutRestart(ctx, deployment.namespace, deployment.name); err != nil {
+			log.Error().
+				Err(err).
+				Str("namespace", deployment.namespace).
+				Str("deployment", deployment.name).
+				Msg("failed to rollout restart deployment")
+			failedDeployments = append(failedDeployments, deployment)
+			metrics.RestartsFailed.WithLabelValues(deployment.namespace, "deployment").Inc()
+			continue
+		}
+
+		log.Info().
+			Str("namespace", deployment.namespace).
+			Str("deployment", deployment.name).
+			Msg("successfully restarted deployment")
+		metrics.DeploymentsRestarted.WithLabelValues(deployment.namespace).Inc()
 
 		time.Sleep(time.Duration(upgrader.Settings.RolloutIntervalSecond) * time.Second)
 	}
 
 	for _, statefulSet := range upgradedStatefulSets {
-		if err := upgrader.StatefulsetService.RolloutRestart(ctx, statefulSet.namespace, statefulSet.name); err != nil {
-			log.Printf("failed to rollout restart statefulSet: %s in namespace: %s reason: %s\n", statefulSet.namespace, statefulSet.name, err.Error())
-			failedStatefulSets = append(failedStatefulSets, statefulSet)
+		// Check for context cancellation
+		if ctx.Err() != nil {
+			log.Warn().Msg("context cancelled, stopping restart loop")
+			break
+		}
+
+		if upgrader.Settings.DryRun {
+			log.Info().
+				Str("namespace", statefulSet.namespace).
+				Str("statefulset", statefulSet.name).
+				Msg("[DRY-RUN] would restart statefulset")
 			continue
 		}
+
+		if err := upgrader.StatefulsetService.RolloutRestart(ctx, statefulSet.namespace, statefulSet.name); err != nil {
+			log.Error().
+				Err(err).
+				Str("namespace", statefulSet.namespace).
+				Str("statefulset", statefulSet.name).
+				Msg("failed to rollout restart statefulset")
+			failedStatefulSets = append(failedStatefulSets, statefulSet)
+			metrics.RestartsFailed.WithLabelValues(statefulSet.namespace, "statefulset").Inc()
+			continue
+		}
+
+		log.Info().
+			Str("namespace", statefulSet.namespace).
+			Str("statefulset", statefulSet.name).
+			Msg("successfully restarted statefulset")
+		metrics.StatefulSetsRestarted.WithLabelValues(statefulSet.namespace).Inc()
 
 		time.Sleep(time.Duration(upgrader.Settings.RolloutIntervalSecond) * time.Second)
 	}
@@ -276,58 +337,58 @@ func (upgrader *ProxyUpgrader) Restart(ctx context.Context, upgradedDeployments 
 func (upgrader *ProxyUpgrader) getUpgradeConfig(ctx context.Context) (types.UpgradeProxyConfig, error) {
 	upgradeConfigMap, err := upgrader.ConfigMapService.Get(ctx, upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
 	if err != nil {
-		log.Printf("failed getting configmap %s on namespace %s\n", upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
+		logger.Log().Error().Err(err).Str("namespace", upgrader.Settings.StorageConfigMapNameSpace).Str("configmap", upgrader.Settings.StorageConfigMapName).Msg("failed to get configmap")
 		return types.UpgradeProxyConfig{}, err
 	}
 
 	configMapClusterName, ok := upgradeConfigMap.Data["cluster_name"]
 	if !ok {
-		log.Println("failed to get cluster_name in the configmap")
+		logger.Log().Error().Msg("missing cluster_name in configmap")
 		return types.UpgradeProxyConfig{}, fmt.Errorf("missing cluster_name in configmap")
 	}
 
 	configMapVersion, ok := upgradeConfigMap.Data["version"]
 	if !ok {
-		log.Println("failed to get version in the configmap")
+		logger.Log().Error().Msg("missing version in configmap")
 		return types.UpgradeProxyConfig{}, fmt.Errorf("missing version in configmap")
 	}
 
 	configMapIteration, ok := upgradeConfigMap.Data["iteration"]
 	if !ok {
-		log.Println("failed to get iteration in the configmap")
+		logger.Log().Error().Msg("missing iteration in configmap")
 		return types.UpgradeProxyConfig{}, fmt.Errorf("missing iteration in configmap")
 	}
 
 	configMapRolloutRestartDate, ok := upgradeConfigMap.Data["rollout_restart_date"]
 	if !ok {
-		log.Println("failed to get rollout_restart_date in the configmap")
+		logger.Log().Error().Msg("missing rollout_restart_date in configmap")
 		return types.UpgradeProxyConfig{}, fmt.Errorf("missing rollout_restart_date in configmap")
 	}
 
 	// version
 	version, err := version.NewVersion(configMapVersion)
 	if err != nil {
-		log.Println("failed to initialize new semantic version: ", err.Error())
+		logger.Log().Error().Err(err).Msg("failed to initialize new semantic version")
 		return types.UpgradeProxyConfig{}, err
 	}
 
 	// config iteration
 	iteration, err := strconv.Atoi(configMapIteration)
 	if err != nil {
-		log.Println("failed to convert iteration configmap to integer")
+		logger.Log().Error().Err(err).Str("iteration", configMapIteration).Msg("failed to convert iteration to integer")
 		return types.UpgradeProxyConfig{}, err
 	}
 
 	// rollout restart date
 	timeLocation, err := time.LoadLocation(upgrader.Settings.TimeLocation)
 	if err != nil {
-		log.Printf("error while loading time location %v\n", err)
+		logger.Log().Error().Err(err).Str("location", upgrader.Settings.TimeLocation).Msg("failed to load time location")
 		return types.UpgradeProxyConfig{}, err
 	}
 
 	rolloutRestartDate, err := time.Parse(upgrader.Settings.TimeFormat, configMapRolloutRestartDate)
 	if err != nil {
-		log.Println("failed to parse rollout restart date from configmap: ", err.Error())
+		logger.Log().Error().Err(err).Msg("failed to parse rollout restart date from configmap")
 		return types.UpgradeProxyConfig{}, err
 	}
 
@@ -342,13 +403,13 @@ func (upgrader *ProxyUpgrader) getUpgradeConfig(ctx context.Context) (types.Upgr
 func (upgrader *ProxyUpgrader) increaseIteration(ctx context.Context, upgradeConfig types.UpgradeProxyConfig) error {
 	upgradeConfigMap, err := upgrader.ConfigMapService.Get(ctx, upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
 	if err != nil {
-		log.Printf("failed getting configmap %s on namespace %s\n", upgrader.Settings.StorageConfigMapNameSpace, upgrader.Settings.StorageConfigMapName)
+		logger.Log().Error().Err(err).Str("namespace", upgrader.Settings.StorageConfigMapNameSpace).Str("configmap", upgrader.Settings.StorageConfigMapName).Msg("failed to get configmap")
 		return err
 	}
 
 	upgradeConfigMap.Data["iteration"] = strconv.Itoa(upgradeConfig.Iteration + 1)
 	if err := upgrader.ConfigMapService.Update(ctx, upgradeConfigMap.Namespace, upgradeConfigMap); err != nil {
-		log.Println("failed to update configmap after rollout restart deployment & statefulsets: ", err.Error())
+		logger.Log().Error().Err(err).Msg("failed to update configmap after rollout restart")
 		return err
 	}
 
@@ -358,7 +419,7 @@ func (upgrader *ProxyUpgrader) increaseIteration(ctx context.Context, upgradeCon
 func (upgrader *ProxyUpgrader) currentDate() (time.Time, error) {
 	timeLocation, err := time.LoadLocation(upgrader.Settings.TimeLocation)
 	if err != nil {
-		log.Printf("error while loading time location %v\n", err)
+		logger.Log().Error().Err(err).Str("location", upgrader.Settings.TimeLocation).Msg("failed to load time location")
 		return time.Now(), err
 	}
 
@@ -392,26 +453,26 @@ func (upgrader *ProxyUpgrader) getNumberOfRestartedByIteration(iteration, total 
 func (upgrader *ProxyUpgrader) getUpgradedIstioDeployments(ctx context.Context, upgradeConfig types.UpgradeProxyConfig) ([]appsv1.Deployment, error) {
 	namespaces, err := upgrader.NamespaceService.GetIstioNamespaces(ctx)
 	if err != nil {
-		log.Println("failed getting istio namespaces: ", err.Error())
+		logger.Log().Error().Err(err).Msg("failed getting istio namespaces")
 		return nil, err
 	}
-	log.Printf("find %d of namespaces is on Istio mesh\n", len(namespaces))
+	logger.Log().Info().Msgf("find %d of namespaces is on Istio mesh\n", len(namespaces))
 
 	upgradedDeployments := make([]appsv1.Deployment, 0)
 	for _, namespace := range namespaces {
 		deployments, err := upgrader.DeploymentService.FindByNamespace(ctx, namespace.Name)
 		if err != nil {
-			log.Println("failed to get deployments by namespace:", namespace.Name, err.Error())
+			logger.Log().Error().Err(err).Str("namespace", namespace.Name).Msg("failed to get deployments by namespace")
 			return nil, err
 		}
-		log.Printf("find %d of deployments is on Istio mesh in namespace %s\n", len(deployments), namespace.Name)
+		logger.Log().Info().Msgf("find %d of deployments is on Istio mesh in namespace %s\n", len(deployments), namespace.Name)
 
 		namespaceUpgradedDeployments, err := upgrader.filterDeploymentsByProxyVersion(ctx, namespace.Name, deployments, &upgradeConfig.Version)
 		if err != nil {
-			log.Println("failed to filter deployments by the currently upgraded proxy version: ", err.Error())
+			logger.Log().Error().Err(err).Msg("failed to filter deployments by proxy version")
 			return nil, err
 		}
-		log.Printf("find %d of deployments is on Istio mesh in namespace %s can be upgraded\n", len(namespaceUpgradedDeployments), namespace.Name)
+		logger.Log().Info().Msgf("find %d of deployments is on Istio mesh in namespace %s can be upgraded\n", len(namespaceUpgradedDeployments), namespace.Name)
 
 		upgradedDeployments = append(upgradedDeployments, namespaceUpgradedDeployments...)
 	}
@@ -426,7 +487,7 @@ func (upgrader *ProxyUpgrader) filterDeploymentsByProxyVersion(ctx context.Conte
 		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas > 0 {
 			pods, err := upgrader.PodService.FindByNamespaceAndLabels(ctx, namespace, deployment.Spec.Selector.MatchLabels)
 			if err != nil {
-				log.Printf("failed to find pods based on namespace and labels on the deployment %s namespace %s: %v\n", deployment.Name, deployment.Namespace, err)
+				logger.Log().Error().Err(err).Str("deployment", deployment.Name).Str("namespace", deployment.Namespace).Msg("failed to find pods for deployment")
 				return nil, err
 			}
 
@@ -435,7 +496,7 @@ func (upgrader *ProxyUpgrader) filterDeploymentsByProxyVersion(ctx context.Conte
 				if istioProxyVersion != "" {
 					currentProxyVersion, err := version.NewVersion(istioProxyVersion)
 					if err != nil {
-						log.Println("failed to find parse istio proxy on deployment", deployment.Name, "namespace", deployment.Namespace, "pod", pod.Name, ":", err.Error())
+						logger.Log().Error().Err(err).Str("deployment", deployment.Name).Str("namespace", deployment.Namespace).Str("pod", pod.Name).Msg("failed to parse istio proxy version")
 						return nil, err
 					}
 
@@ -453,26 +514,26 @@ func (upgrader *ProxyUpgrader) filterDeploymentsByProxyVersion(ctx context.Conte
 func (upgrader *ProxyUpgrader) getUpgradedIstioStatefulSets(ctx context.Context, upgradeConfig types.UpgradeProxyConfig) ([]appsv1.StatefulSet, error) {
 	namespaces, err := upgrader.NamespaceService.GetIstioNamespaces(ctx)
 	if err != nil {
-		log.Println("failed getting istio namespaces: ", err.Error())
+		logger.Log().Error().Err(err).Msg("failed getting istio namespaces")
 		return nil, err
 	}
-	log.Printf("find %d of namespaces is on Istio mesh\n", len(namespaces))
+	logger.Log().Info().Msgf("find %d of namespaces is on Istio mesh\n", len(namespaces))
 
 	upgradedStatefulSets := make([]appsv1.StatefulSet, 0)
 	for _, namespace := range namespaces {
 		statefulsets, err := upgrader.StatefulsetService.FindByNamespace(ctx, namespace.Name)
 		if err != nil {
-			log.Printf("failed to get deployments by namespace %s: %v\n", namespace.Name, err.Error())
+			logger.Log().Error().Err(err).Str("namespace", namespace.Name).Msg("failed to get statefulsets by namespace")
 			return nil, err
 		}
-		log.Printf("find %d of statefulsets is on Istio mesh in namespace %s\n", len(statefulsets), namespace.Name)
+		logger.Log().Info().Msgf("find %d of statefulsets is on Istio mesh in namespace %s\n", len(statefulsets), namespace.Name)
 
 		namespaceUpgradedStatefulSets, err := upgrader.filterStatefulSetsByProxyVersion(ctx, namespace.Name, statefulsets, &upgradeConfig.Version)
 		if err != nil {
-			log.Println("failed to filter deployments by the currently upgraded proxy version: ", err.Error())
+			logger.Log().Error().Err(err).Msg("failed to filter deployments by proxy version")
 			return nil, err
 		}
-		log.Printf("find %d of statefulsets is on Istio mesh in namespace %s can be upgraded\n", len(namespaceUpgradedStatefulSets), namespace.Name)
+		logger.Log().Info().Msgf("find %d of statefulsets is on Istio mesh in namespace %s can be upgraded\n", len(namespaceUpgradedStatefulSets), namespace.Name)
 
 		upgradedStatefulSets = append(upgradedStatefulSets, namespaceUpgradedStatefulSets...)
 	}
@@ -487,7 +548,7 @@ func (upgrader *ProxyUpgrader) filterStatefulSetsByProxyVersion(ctx context.Cont
 		if statefulset.Spec.Replicas == nil || *statefulset.Spec.Replicas > 0 {
 			pods, err := upgrader.PodService.FindByNamespaceAndLabels(ctx, namespace, statefulset.Spec.Selector.MatchLabels)
 			if err != nil {
-				log.Printf("failed to find pods based on namespace and labels on the statefulset %s namespace %s: %v\n", statefulset.Name, statefulset.Namespace, err)
+				logger.Log().Error().Err(err).Str("statefulset", statefulset.Name).Str("namespace", statefulset.Namespace).Msg("failed to find pods for statefulset")
 				return nil, err
 			}
 
@@ -496,7 +557,7 @@ func (upgrader *ProxyUpgrader) filterStatefulSetsByProxyVersion(ctx context.Cont
 				if istioProxyVersion != "" {
 					currentProxyVersion, err := version.NewVersion(istioProxyVersion)
 					if err != nil {
-						log.Printf("failed to find parse istio proxy on statefulset %s namespace %s pod %s: %v\n", statefulset.Name, statefulset.Namespace, pod.Name, err.Error())
+						logger.Log().Error().Err(err).Str("statefulset", statefulset.Name).Str("namespace", statefulset.Namespace).Str("pod", pod.Name).Msg("failed to parse istio proxy version")
 						return nil, err
 					}
 

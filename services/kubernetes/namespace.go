@@ -42,7 +42,21 @@ func (s *NamespaceService) GetIstioNamespaces(ctx context.Context) ([]Namespace,
 	var namespaces []Namespace
 	namespaces = append(namespaces, canaryNamespaces...)
 	namespaces = append(namespaces, nonCanaryNamespaces...)
-	return namespaces, nil
+	return deduplicateNamespaces(namespaces), nil
+}
+
+func deduplicateNamespaces(namespaces []Namespace) []Namespace {
+	seen := make(map[string]bool)
+	result := make([]Namespace, 0)
+
+	for _, ns := range namespaces {
+		if !seen[ns.Name] {
+			seen[ns.Name] = true
+			result = append(result, ns)
+		}
+	}
+
+	return result
 }
 
 func (s *NamespaceService) GetNamespaceByLabel(ctx context.Context, label string) ([]Namespace, error) {

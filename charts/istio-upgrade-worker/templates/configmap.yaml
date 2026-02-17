@@ -29,3 +29,7 @@ data:
 
   ISTIO_NAMESPACE_CANARY_LABEL: "{{ .Values.configuration.istioNamespaceCanaryLabel }}"
   ISTIO_NAMESPACE_LABEL: "{{ .Values.configuration.istioNamespaceLabel }}"
+
+  DRY_RUN: "{{ .Values.configuration.dryRun }}"
+  LOG_LEVEL: "{{ .Values.configuration.logLevel }}"
+  LOG_FORMAT: "{{ .Values.configuration.logFormat }}"

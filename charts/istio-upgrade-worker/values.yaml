@@ -44,3 +44,7 @@ configuration:
   istioNamespaceCanaryLabel: istio.io/rev=default
   istioNamespaceLabel: istio-injection=enabled
 
+  dryRun: false
+  logLevel: "info"
+  logFormat: "json"
+

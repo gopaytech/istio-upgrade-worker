@@ -8,6 +8,8 @@ import (
 
 var (
 	ErrTotalRolloutLessThan100Percentage = errors.New("total services that will be rollouted is less then 100%, please increase environment variable for MAXIMUM_PERCENTAGE_ROLLOUT_SINGLE_EXECUTION or MAXIMUM_ITERATION")
+	ErrSlackWebhookRequired              = errors.New("NOTIFICATION_SLACK_WEBHOOK is required when NOTIFICATION_MODE is slack")
+	ErrLarkWebhookRequired               = errors.New("NOTIFICATION_LARK_WEBHOOK is required when NOTIFICATION_MODE is lark")
 )
 
 type Settings struct {
@@ -34,11 +36,23 @@ type Settings struct {
 
 	IstioNamespaceCanaryLabel string `required:"true" envconfig:"ISTIO_NAMESPACE_CANARY_LABEL" default:"istio.io/rev=default"`
 	IstioNamespaceLabel       string `required:"true" envconfig:"ISTIO_NAMESPACE_LABEL" default:"istio-injection=enabled"`
+
+	DryRun    bool   `envconfig:"DRY_RUN" default:"false"`
+	LogLevel  string `envconfig:"LOG_LEVEL" default:"info"`
+	LogFormat string `envconfig:"LOG_FORMAT" default:"json"`
 }
 
 func (s Settings) Validation() error {
 	if s.MaximumPercentageRolloutInSingleExecution*s.MaximumIteration < 100 {
 		return ErrTotalRolloutLessThan100Percentage
+	}
+
+	if s.NotificationMode == "slack" && s.NotificationSlackWebhook == "" {
+		return ErrSlackWebhookRequired
+	}
+
+	if s.NotificationMode == "lark" && s.NotificationLarkWebhook == "" {
+		return ErrLarkWebhookRequired
 	}
 
 	return nil

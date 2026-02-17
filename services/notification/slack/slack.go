@@ -3,10 +3,10 @@ package slack
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"strconv"
 	"time"
 
+	"github.com/gopaytech/istio-upgrade-worker/pkg/logger"
 	"github.com/gopaytech/istio-upgrade-worker/settings"
 	"github.com/gopaytech/istio-upgrade-worker/types"
 	"github.com/slack-go/slack"
@@ -34,9 +34,9 @@ func (s Slack) Send(ctx context.Context, upgrade types.Notification) error {
 		Attachments: []slack.Attachment{attachment},
 	}
 
-	err := slack.PostWebhook(s.Settings.NotificationSlackWebhook, &msg)
+	err := slack.PostWebhookContext(ctx, s.Settings.NotificationSlackWebhook, &msg)
 	if err != nil {
-		log.Printf("failed to send slack notification: %v\n", err.Error())
+		logger.Log().Error().Err(err).Msg("failed to send slack notification")
 		return err
 	}
 

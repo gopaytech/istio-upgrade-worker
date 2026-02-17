@@ -2,9 +2,9 @@ package lark
 
 import (
 	"context"
-	"log"
 
 	golark "github.com/go-lark/lark"
+	"github.com/gopaytech/istio-upgrade-worker/pkg/logger"
 	"github.com/gopaytech/istio-upgrade-worker/settings"
 	"github.com/gopaytech/istio-upgrade-worker/types"
 )
@@ -28,11 +28,25 @@ func (s Lark) Send(ctx context.Context, upgrade types.Notification) error {
 		Render()
 	buffer := golark.NewMsgBuffer(golark.MsgPost).Post(content).Build()
 
-	_, err := bot.PostNotificationV2(buffer)
-	if err != nil {
-		log.Printf("failed to send lark notification: %v\n", err.Error())
-		return err
+	// Use channel to handle context cancellation
+	type result struct {
+		err error
 	}
+	done := make(chan result, 1)
 
-	return nil
+	go func() {
+		_, err := bot.PostNotificationV2(buffer)
+		done <- result{err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case r := <-done:
+		if r.err != nil {
+			logger.Log().Error().Err(r.err).Msg("failed to send lark notification")
+			return r.err
+		}
+		return nil
+	}
 }
