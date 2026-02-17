@@ -52,8 +52,8 @@ func NewSettings() (Settings, error) {
 		return settings, err
 	}
 
-	if settings.Validation() != nil {
-		return settings, err
+	if validationErr := settings.Validation(); validationErr != nil {
+		return settings, validationErr
 	}
 
 	return settings, nil

@@ -187,8 +187,6 @@ func (upgrader *ProxyUpgrader) Upgrade(ctx context.Context) error {
 				}
 			}
 		}
-
-		log.Println("something is wrong with the codebase")
 	}
 
 	return nil
@@ -243,7 +241,7 @@ func (upgrader *ProxyUpgrader) calculatedUpgradedIstioStatefulSets(ctx context.C
 			upgradedStatefulSets = append(upgradedStatefulSets, upgradeStatefulSet)
 		}
 	}
-	log.Printf("%d out of %d deployments will be rollout restarted\n", len(upgradedStatefulSets), len(statefulsets))
+	log.Printf("%d out of %d statefulsets will be rollout restarted\n", len(upgradedStatefulSets), len(statefulsets))
 
 	return upgradedStatefulSets, nil
 }
@@ -284,26 +282,26 @@ func (upgrader *ProxyUpgrader) getUpgradeConfig(ctx context.Context) (types.Upgr
 
 	configMapClusterName, ok := upgradeConfigMap.Data["cluster_name"]
 	if !ok {
-		log.Println("failed to get rollout_restart_date in the configmap")
-		return types.UpgradeProxyConfig{}, err
+		log.Println("failed to get cluster_name in the configmap")
+		return types.UpgradeProxyConfig{}, fmt.Errorf("missing cluster_name in configmap")
 	}
 
 	configMapVersion, ok := upgradeConfigMap.Data["version"]
 	if !ok {
-		log.Println("failed to get rollout_restart_date in the configmap")
-		return types.UpgradeProxyConfig{}, err
+		log.Println("failed to get version in the configmap")
+		return types.UpgradeProxyConfig{}, fmt.Errorf("missing version in configmap")
 	}
 
 	configMapIteration, ok := upgradeConfigMap.Data["iteration"]
 	if !ok {
-		log.Println("failed to get rollout_restart_date in the configmap")
-		return types.UpgradeProxyConfig{}, err
+		log.Println("failed to get iteration in the configmap")
+		return types.UpgradeProxyConfig{}, fmt.Errorf("missing iteration in configmap")
 	}
 
 	configMapRolloutRestartDate, ok := upgradeConfigMap.Data["rollout_restart_date"]
 	if !ok {
 		log.Println("failed to get rollout_restart_date in the configmap")
-		return types.UpgradeProxyConfig{}, err
+		return types.UpgradeProxyConfig{}, fmt.Errorf("missing rollout_restart_date in configmap")
 	}
 
 	// version
@@ -424,7 +422,8 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioDeployments(ctx context.Context, 
 func (upgrader *ProxyUpgrader) filterDeploymentsByProxyVersion(ctx context.Context, namespace string, deployments []appsv1.Deployment, upgradeProxyVersion *version.Version) ([]appsv1.Deployment, error) {
 	upgradedDeployments := make([]appsv1.Deployment, 0)
 	for _, deployment := range deployments {
-		if *deployment.Spec.Replicas > 0 {
+		// Replicas defaults to 1 if nil
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas > 0 {
 			pods, err := upgrader.PodService.FindByNamespaceAndLabels(ctx, namespace, deployment.Spec.Selector.MatchLabels)
 			if err != nil {
 				log.Printf("failed to find pods based on namespace and labels on the deployment %s namespace %s: %v\n", deployment.Name, deployment.Namespace, err)
@@ -484,7 +483,8 @@ func (upgrader *ProxyUpgrader) getUpgradedIstioStatefulSets(ctx context.Context,
 func (upgrader *ProxyUpgrader) filterStatefulSetsByProxyVersion(ctx context.Context, namespace string, statefulsets []appsv1.StatefulSet, upgradeProxyVersion *version.Version) ([]appsv1.StatefulSet, error) {
 	upgradedStatefulsets := make([]appsv1.StatefulSet, 0)
 	for _, statefulset := range statefulsets {
-		if *statefulset.Spec.Replicas > 0 {
+		// Replicas defaults to 1 if nil
+		if statefulset.Spec.Replicas == nil || *statefulset.Spec.Replicas > 0 {
 			pods, err := upgrader.PodService.FindByNamespaceAndLabels(ctx, namespace, statefulset.Spec.Selector.MatchLabels)
 			if err != nil {
 				log.Printf("failed to find pods based on namespace and labels on the statefulset %s namespace %s: %v\n", statefulset.Name, statefulset.Namespace, err)
@@ -517,27 +517,51 @@ func (upgrader *ProxyUpgrader) getPodProxyVersion(pod v1.Pod) (ver string) {
 
 	for _, container := range containers {
 		if container.Name == proxyContainerName {
-			containerImage := container.Image
-			splitImageNames := strings.Split(containerImage, ":")
-			if len(splitImageNames) >= 2 {
-				ver = splitImageNames[1]
+			ver = extractImageTag(container.Image)
+			if ver != "" {
+				return ver
 			}
 		}
 	}
 
-	if ver == "" {
-		for _, initContainer := range initContainers {
-			if initContainer.Name == proxyContainerName {
-				initContainerImage := initContainer.Image
-				splitImageNames := strings.Split(initContainerImage, ":")
-				if len(splitImageNames) >= 2 {
-					ver = splitImageNames[1]
-				}
+	for _, initContainer := range initContainers {
+		if initContainer.Name == proxyContainerName {
+			ver = extractImageTag(initContainer.Image)
+			if ver != "" {
+				return ver
 			}
 		}
 	}
 
 	return ver
+}
+
+// extractImageTag extracts the tag from a container image reference.
+// Handles formats like:
+//   - image:tag
+//   - registry/image:tag
+//   - registry:port/image:tag
+//   - image@sha256:digest (returns empty string for digest format)
+func extractImageTag(image string) string {
+	// Skip digest format (image@sha256:...)
+	if strings.Contains(image, "@") {
+		return ""
+	}
+
+	// Find the last colon - the tag is after it
+	// But we need to ensure it's not a port in the registry (e.g., registry:5000/image)
+	lastColon := strings.LastIndex(image, ":")
+	if lastColon == -1 {
+		return ""
+	}
+
+	// Check if there's a slash after the last colon (meaning it's a port, not a tag)
+	afterColon := image[lastColon+1:]
+	if strings.Contains(afterColon, "/") {
+		return ""
+	}
+
+	return afterColon
 }
 
 func DateEqual(date1, date2 time.Time) bool {
