@@ -446,7 +446,7 @@ func (upgrader *ProxyUpgrader) isDeploymentFreeze(currentTime time.Time) bool {
 }
 
 func (upgrader *ProxyUpgrader) getNumberOfRestartedByIteration(iteration, total int) (restarted int) {
-	percentage := float64(upgrader.Settings.MaximumPercentageRolloutInSingleExecution) / 100 * float64(iteration)
+	percentage := float64(upgrader.Settings.MaximumPercentageRolloutInSingleExecution) / 100
 	return int(math.Ceil(percentage * float64(total)))
 }
 
